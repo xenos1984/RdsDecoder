@@ -29,7 +29,6 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 	$dirs = $event['direction'];
 	$urg = $event['urgency'];
 
-	echo "<pre>";
 	echo "Event: $ecd - " . $event['text'];
 	echo "\nLocation: $lcd";
 	echo "\nDirection: " . ($dir ? "negative" : "positive");
@@ -141,14 +140,15 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			break;
 		}
 	}
-
-	echo "</pre>\n";
 }
 
 function decode_tmc($blockA, $blockB, $blockC, $blockD)
 {
 	static $ecd, $lcd, $dir, $ext, $bits;
-	static $lastA, $lastB, $lastC, $lastD;
+	static $lastA = 0, $lastB = 0, $lastC = 0, $lastD = 0;
+
+	if(($lastA == $blockA) && ($lastB == $blockB) && ($lastC == $blockC) && ($lastD == $blockD))
+		return;
 
 	$x = $blockB & 0x1f;
 	$y = $blockC;
@@ -195,6 +195,11 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 			}
 		}
 	}
+
+	$lastA = $blockA;
+	$lastB = $blockB;
+	$lastC = $blockC;
+	$lastD = $blockD;
 }
 
 ?>

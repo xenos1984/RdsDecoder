@@ -3,7 +3,7 @@ include_once('tmcdecode.php');
 
 function decode_group($blockA, $blockB, $blockC, $blockD)
 {
-	if($blockB & 0xf800 == 0x8000)
+	if(($blockB & 0xf800) == 0x8000)
 		decode_tmc($blockA, $blockB, $blockC, $blockD);
 }
 
@@ -20,9 +20,18 @@ function decode_hex($line)
 	decode_group($blockA, $blockB, $blockC, $blockD);
 }
 
-decode_hex("d3 68 85 46 e0 cb 2f ca");
-decode_hex("d3 68 85 46 6e 95 31 45");
-decode_hex("d3 68 85 46 1f a7 45 ac");
-decode_hex("d3 68 85 46 04 00 00 00");
+function decode_hex_text($text)
+{
+	$lines = explode("\n", $text);
+	foreach($lines as $line)
+		decode_hex($line);
+}
 
+function decode_hex_file($file)
+{
+	$input = fopen($file, 'r');
+	while(!feof($input))
+		decode_hex(trim(fgets($input)));
+	fclose($input);
+}
 ?>
