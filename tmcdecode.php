@@ -23,20 +23,33 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 	static $urgnames = array('normal', 'urgent', 'extremely urgent');
 
 	$event = find_event($ecd);
-	$events = array($event);
-	$ccodes = array();
-	$supps = array();
-	$dirs = $event['direction'];
-	$urg = $event['urgency'];
+	$last = 0;
 
-	echo "Event: $ecd - " . $event['text'];
+	$message = array(); // Holds the whole message.
+	$message['ccodes'] = array(); // Holds the control codes.
+	$message['iblocks'] = array(); // Holds the information blocks.
+	$message['iblocks'][] = array(); // The first information block.
+	$message['iblocks'][0]['events'] = array($event);
+	$message['supps'] = array(); // Holds supplementary information.
+	$message['diversions'] = array(); // Holds detailed diversions.
+	$message['lcd'] = $lcd;
+	$message['direction'] = $dir;
+	$message['extent'] = $ext;
+
+	echo "\nEvent: $ecd - " . $event['text'];
 	echo "\nLocation: $lcd";
 	echo "\nDirection: " . ($dir ? "negative" : "positive");
 	echo "\nExtent: $ext";
 	if($dur !== null)
+	{
 		echo "\nDuration: $dur";
+		$message['duration'] = $dur; // Duration only once per message.
+	}
 	if($div !== null)
+	{
 		echo "\nDiversion: " . ($div ? "yes" : "no");
+		$message['diversion'] = $div;
+	}
 
 	while(strpos($bits, '1') !== false)
 	{
@@ -48,12 +61,13 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$duration = bindec(substr($bits, 0, 3));
 			$bits = substr($bits, 3);
 			echo "\nDuration: $duration";
+			$message['duration'] = $duration; // Duration (only once per message).
 			break;
 		case 1:
 			$control = bindec(substr($bits, 0, 3));
 			$bits = substr($bits, 3);
-			$ccodes[] = $control;
 			echo "\nControl code: $control - " . $ccnames[$control];
+			$message['ccodes'][] = $control; // Add control code.
 			break;
 		case 2:
 			$length = bindec(substr($bits, 0, 5));
@@ -67,61 +81,79 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 				echo sprintf("%dkm", 2 * $length - 10);
 			else
 				echo sprintf("%dkm", 5 * $length - 55);
+			$message['iblocks'][count($message['iblocks']) - 1]['length'] = $length; // Affected route length per information block.
 			break;
 		case 3:
 			$speed = bindec(substr($bits, 0, 5));
 			$bits = substr($bits, 5);
 			echo "\nSpeed limit: " . (5 * $speed) . "km/h";
+			$message['iblocks'][count($message['iblocks']) - 1]['speed'] = $speed; // Speed limit advice per information block.
 			break;
 		case 4:
 			$qcd = bindec(substr($bits, 0, 5));
 			$bits = substr($bits, 5);
-			$events[count($events) - 1]['quant'] = $qcd;
-			$value = find_quantifier($events[count($events) - 1]['quantifier'], $qcd) . $units[$event['quantifier']];
+			$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quant'] = $qcd;
+			$value = find_quantifier($message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier'], $qcd) . $units[$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier']];
 			echo "\nQuantifier (5 bits): $qcd, Q = $value";
 			break;
 		case 5:
 			$qcd = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
-			$events[count($events) - 1]['quant'] = $qcd;
-			$value = find_quantifier($events[count($events) - 1]['quantifier'], $qcd) . $units[$event['quantifier']];
+			$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quant'] = $qcd;
+			$value = find_quantifier($message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier'], $qcd) . $units[$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier']];
 			echo "\nQuantifier (8 bits): $qcd, Q = $value";
 			break;
 		case 6:
 			$scd = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
 			$supp = find_supplement($scd);
-			$supps[] = $supp;
 			echo "\nSupplementary information: $scd - " . $supp['text'];
+			$message['supps'][] = $supp; // Supplementary information (may be several per message).
 			break;
 		case 7:
 			$start = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
 			echo "\nStart time: $start - " . decode_time($start);
+			$message['start'] = $start; // Start time (only once per message).
 			break;
 		case 8:
 			$stop = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
 			echo "\nStop time: $stop - " . decode_time($stop);
+			$message['stop'] = $stop; // Start time (only once per message).
 			break;
 		case 9:
 			$ecd = bindec(substr($bits, 0, 11));
 			$bits = substr($bits, 11);
 			$event = find_event($ecd);
-			$events[] = $event;
-			$dirs = min($dirs, $event['direction']);
-			$urg = max($urg, $event['urgency']);
+			$message['iblocks'][count($message['iblocks']) - 1]['events'][] = $event;
 			echo "\nAdditional event: $ecd - " . $event['text'];
 			break;
 		case 10:
 			$diversion = bindec(substr($bits, 0, 16));
 			$bits = substr($bits, 16);
 			echo "\nDiversion: $diversion";
+			if($last != $label)
+			{
+				$message['diversions'][] = array();
+				$message['diversions'][count($message['diversions']) - 1]['route'] = array();
+				if($last == 11)
+					$message['diversions'][count($message['diversions']) - 1]['destinations'] = $dests;
+			}
+			$message['diversions'][count($message['diversions']) - 1]['route'][] = $diversion;
 			break;
 		case 11:
 			$destination = bindec(substr($bits, 0, 16));
 			$bits = substr($bits, 16);
 			echo "\nDestination: $destination";
+			if($last != $label)
+				$dests = array();
+			$dests[] = $destination;
+			if((bindec(substr($bits, 0, 4)) != 10) && (bindec(substr($bits, 0, 4)) != 11))
+			{
+				$message['iblocks'][count($message['iblocks']) - 1]['destinations'] = $dest;
+				unset($dest);
+			}
 			break;
 		case 12:
 			$reserved = bindec(substr($bits, 0, 16));
@@ -132,19 +164,26 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$cross = bindec(substr($bits, 0, 16));
 			$bits = substr($bits, 16);
 			echo "\nCross link: $cross";
+			$message['cross'] = $cross; // Cross link (only once per message).
 			break;
 		case 14:
 			echo "\nSeparator";
+			$message['iblocks'][] = array(); // Create new information block.
 			break;
 		default:
 			break;
 		}
+		$last = $label;
 	}
+
+	echo "\n";
+	print_r($message);
+	echo "\n";
 }
 
 function decode_tmc($blockA, $blockB, $blockC, $blockD)
 {
-	static $ecd, $lcd, $dir, $ext, $bits;
+	static $ecd = 0, $lcd, $dir, $ext, $bits;
 	static $lastA = 0, $lastB = 0, $lastC = 0, $lastD = 0;
 
 	if(($lastA == $blockA) && ($lastB == $blockB) && ($lastC == $blockC) && ($lastD == $blockD))
@@ -189,7 +228,7 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 			else
 				$bits .= $bit;
 
-			if(!$gsi)
+			if((!$gsi) && $ecd)
 			{
 				decode_message($ecd, $lcd, $dir, $ext, null, null, $bits);
 			}
