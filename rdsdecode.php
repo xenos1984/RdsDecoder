@@ -4,8 +4,17 @@ include_once('tmcdecode.php');
 function decode_group($blockA, $blockB, $blockC, $blockD)
 {
 //	echo sprintf("%04x %04x %04x %04x\n", $blockA, $blockB, $blockC, $blockD);
-	if(($blockB & 0xf800) == 0x8000)
+	switch($blockB >> 11)
+	{
+	case 0x06: // 3A - TMC system info
+		//system_tmc($blockA, $blockB, $blockC, $blockD);
+		break;
+	case 0x10: // 8A - TMC message
 		decode_tmc($blockA, $blockB, $blockC, $blockD);
+		break;
+	default:
+		break;
+	}
 }
 
 function decode_hex($line)

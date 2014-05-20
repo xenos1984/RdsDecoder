@@ -1,9 +1,11 @@
 <?php
 include_once('rdspdo.php');
 
-function decode_time($time)
+function decode_time($time, $now = 0)
 {
-	$now = time();
+	if(!$now)
+		$now = time();
+
 	$today = 86400 * (int)($now / 86400);
 	$tomorrow = $today + 86400;
 	if($time < 96)
@@ -11,16 +13,14 @@ function decode_time($time)
 	else if($time < 201)
 		return date("l j. F H:i T", $tomorrow + 3600 * ($time - 96));
 	else if($time < 232)
-		return ($time - 200) . ". " . date("F", strtotime(($time - 200 > date("j") ? "today UTC" : "first day of next month UTC")));
+		return ($time - 200) . ". " . date("F", strtotime(($time - 200 > date("j", $now) ? "today UTC" : "first day of next month UTC")));
 	else
 		return ($time % 2 ? "end of" : "middle of") . " " . date("F", strtotime((int)(($time - 230) / 2) . "/1"));
 }
 
 function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 {
-	static $units = array('', '', 'm', '%', 'km/h', 'min', '°C', 'min', 't', 'm', 'mm', 'MHz', 'kHz');
 	static $ccnames = array('increase urgency', 'decrease urgency', 'switch directionality', 'switch duration', 'switch verbosity', 'set diversion', 'increase extent by 8', 'increase extent by 16');
-	static $urgnames = array('normal', 'urgent', 'extremely urgent');
 
 	$event = find_event($ecd);
 	$last = 0;
@@ -35,15 +35,19 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 	$message['lcd'] = $lcd;
 	$message['direction'] = $dir;
 	$message['extent'] = $ext;
+	$message['directions'] = $event['direction'];
+	$message['urgency'] = $event['urgency'];
 
-	echo "\nEvent: $ecd - " . $event['text'];
+	echo "Event: $ecd - " . $event['text'];
 	echo "\nLocation: $lcd";
 	echo "\nDirection: " . ($dir ? "negative" : "positive");
 	echo "\nExtent: $ext";
-	if($dur !== null)
+	echo "\nBits: $bits";
+	if($dur)
 	{
 		echo "\nDuration: $dur";
 		$message['duration'] = $dur; // Duration only once per message.
+		$message['durtype'] = $event['duration'];
 	}
 	if($div !== null)
 	{
@@ -62,6 +66,7 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$bits = substr($bits, 3);
 			echo "\nDuration: $duration";
 			$message['duration'] = $duration; // Duration (only once per message).
+			$message['durtype'] = $message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['duration'];
 			break;
 		case 1:
 			$control = bindec(substr($bits, 0, 3));
@@ -127,6 +132,8 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$bits = substr($bits, 11);
 			$event = find_event($ecd);
 			$message['iblocks'][count($message['iblocks']) - 1]['events'][] = $event;
+			$message['directions'] = min($message['directions'], $event['direction']);
+			$message['urgency'] = max($message['urgency'], $event['urgency']);
 			echo "\nAdditional event: $ecd - " . $event['text'];
 			break;
 		case 10:
@@ -176,9 +183,40 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 		$last = $label;
 	}
 
-	echo "\n";
-	print_r($message);
-	echo "\n";
+	foreach($message['ccodes'] as $control)
+	{
+		switch($control)
+		{
+		case 0:
+			$message['urgency'] = ($message['urgency'] + 1) % 3;
+			break;
+		case 1:
+			$message['urgency'] = ($message['urgency'] + 2) % 3;
+			break;
+		case 2:
+			$message['directions'] = 3 - $message['directions'];
+			break;
+		case 3:
+			$message['durtype'] = preg_replace_callback('/(D|L)/', function($matches) {return chr(144 - ord($matches[0]))}, $message['durtype']);
+			break;
+		case 4:
+			$message['durtype'] = (strlen($message['durtype']) == 3 ? substr($message['durtype'], 1, 1) : "({$message['durtype']})");
+			break;
+		case 5:
+			$message['diversion'] = 1;
+			break;
+		case 6:
+			$message['extent'] += 8;
+			break;
+		case 7:
+			$message['extent'] += 16;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return $message;
 }
 
 function decode_tmc($blockA, $blockB, $blockC, $blockD)
@@ -204,7 +242,7 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 		$div = ($y >> 15) & 0x1;
 		$dur = $x & 0x7;
 
-		decode_message($ecd, $lcd, $dir, $ext, $dur, $div, "");
+		$result = decode_message($ecd, $lcd, $dir, $ext, $dur, $div, "");
 	}
 	else if($multi == 0)
 	{
@@ -216,6 +254,7 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 			$ecd = $y & 0x7ff;
 			$ext = ($y >> 11) & 0x7;
 			$dir = ($y >> 14) & 0x1;
+			$result = false;
 		}
 		else
 		{
@@ -229,9 +268,9 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 				$bits .= $bit;
 
 			if((!$gsi) && $ecd)
-			{
-				decode_message($ecd, $lcd, $dir, $ext, null, null, $bits);
-			}
+				$result = decode_message($ecd, $lcd, $dir, $ext, 0, null, $bits);
+			else
+				$result = false;
 		}
 	}
 
@@ -239,6 +278,30 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 	$lastB = $blockB;
 	$lastC = $blockC;
 	$lastD = $blockD;
+
+	return $result;
 }
 
+function system_tmc($blockA, $blockB, $blockC, $blockD)
+{
+	echo "\nTMC system information:\n";
+	echo sprintf("Application ID %04x.\n", $blockD);
+
+	if($blockD != 0xcd46)
+		return;
+
+	switch($blockC >> 14)
+	{
+	case 0:
+		$tabcd = ($blockC >> 6) & 0x3f;
+		echo "Location table number $tabcd.\n";
+		break;
+	case 1:
+		$sid = ($blockC >> 6) & 0x3f;
+		echo "Service identifier $sid.\n";
+		break;
+	default:
+		break;
+	}
+}
 ?>

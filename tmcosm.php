@@ -27,6 +27,6 @@ function find_osm_point($cid, $tabcd, $lcd)
 
 function find_osm_area($cid, $tabcd, $lcd)
 {
-	return read_overpass("(relation[\"type\"=\"tmc:area\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"$lcd\"];>;);out meta;");
+	return read_overpass("(relation[\"type\"=\"tmc:area\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"$lcd\"];>>;);out meta;");
 }
 ?>
