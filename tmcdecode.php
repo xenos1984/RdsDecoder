@@ -197,7 +197,7 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$message['directions'] = 3 - $message['directions'];
 			break;
 		case 3:
-			$message['durtype'] = preg_replace_callback('/(D|L)/', function($matches) {return chr(144 - ord($matches[0]))}, $message['durtype']);
+			$message['durtype'] = preg_replace_callback('/(D|L)/', function($matches) {return chr(144 - ord($matches[0]));}, $message['durtype']);
 			break;
 		case 4:
 			$message['durtype'] = (strlen($message['durtype']) == 3 ? substr($message['durtype'], 1, 1) : "({$message['durtype']})");
@@ -219,30 +219,32 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 	return $message;
 }
 
-function decode_tmc($blockA, $blockB, $blockC, $blockD)
+function decode_tmc($blocks)
 {
-	static $ecd = 0, $lcd, $dir, $ext, $bits;
-	static $lastA = 0, $lastB = 0, $lastC = 0, $lastD = 0;
+	static $message = array();
+	static $last = array(0,0,0,0);
 
-	if(($lastA == $blockA) && ($lastB == $blockB) && ($lastC == $blockC) && ($lastD == $blockD))
+	if(array_reduce(array_map(function($a, $b) {return $a == $b;}, $blocks, $last), function($a, $b) {return $a and $b;}, true))
 		return;
 
-	$x = $blockB & 0x1f;
-	$y = $blockC;
-	$z = $blockD;
+	$x = $blocks[1] & 0x1f;
+	$y = $blocks[2];
+	$z = $blocks[3];
 
+	$result = false;
 	$multi = ($x >> 3) & 0x3;
 
 	if($multi == 1)
 	{
-		$lcd = $z;
-		$ecd = $y & 0x7ff;
-		$ext = ($y >> 11) & 0x7;
-		$dir = ($y >> 14) & 0x1;
-		$div = ($y >> 15) & 0x1;
-		$dur = $x & 0x7;
+		$message['lcd'] = $z;
+		$message['ecd'] = $y & 0x7ff;
+		$message['ext'] = ($y >> 11) & 0x7;
+		$message['dir'] = ($y >> 14) & 0x1;
+		$message['div'] = ($y >> 15) & 0x1;
+		$message['dur'] = $x & 0x7;
 
-		$result = decode_message($ecd, $lcd, $dir, $ext, $dur, $div, "");
+		$result = $message;
+		$message = array();
 	}
 	else if($multi == 0)
 	{
@@ -250,11 +252,10 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 		$first = ($y >> 15) & 0x1;
 		if($first)
 		{
-			$lcd = $z;
-			$ecd = $y & 0x7ff;
-			$ext = ($y >> 11) & 0x7;
-			$dir = ($y >> 14) & 0x1;
-			$result = false;
+			$message['lcd'] = $z;
+			$message['ecd'] = $y & 0x7ff;
+			$message['ext'] = ($y >> 11) & 0x7;
+			$message['dir'] = ($y >> 14) & 0x1;
 		}
 		else
 		{
@@ -263,21 +264,20 @@ function decode_tmc($blockA, $blockB, $blockC, $blockD)
 
 			$bit = str_pad(decbin((($y & 0xfff) << 16) + $z), 28, '0', STR_PAD_LEFT);
 			if($second)
-				$bits = $bit;
+				$message['bits'] = $bit;
 			else
-				$bits .= $bit;
+				$message['bits'] .= $bit;
 
-			if((!$gsi) && $ecd)
-				$result = decode_message($ecd, $lcd, $dir, $ext, 0, null, $bits);
-			else
-				$result = false;
+			if(!$gsi)
+			{
+				if(array_key_exists('ecd', $message))
+					$result = $message;
+				$message = array();
+			}
 		}
 	}
 
-	$lastA = $blockA;
-	$lastB = $blockB;
-	$lastC = $blockC;
-	$lastD = $blockD;
+	$last = $blocks;
 
 	return $result;
 }

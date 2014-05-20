@@ -1,47 +1,35 @@
 <?php
-include_once('tmcdecode.php');
-
-function decode_group($blockA, $blockB, $blockC, $blockD)
-{
-//	echo sprintf("%04x %04x %04x %04x\n", $blockA, $blockB, $blockC, $blockD);
-	switch($blockB >> 11)
-	{
-	case 0x06: // 3A - TMC system info
-		//system_tmc($blockA, $blockB, $blockC, $blockD);
-		break;
-	case 0x10: // 8A - TMC message
-		decode_tmc($blockA, $blockB, $blockC, $blockD);
-		break;
-	default:
-		break;
-	}
-}
-
 function decode_hex($line)
 {
 	if(!preg_match('/([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])/i', $line, $result))
-		return;
+		return false;
 
-	$blockA = (hexdec($result[1]) << 8) + hexdec($result[2]);
-	$blockB = (hexdec($result[3]) << 8) + hexdec($result[4]);
-	$blockC = (hexdec($result[5]) << 8) + hexdec($result[6]);
-	$blockD = (hexdec($result[7]) << 8) + hexdec($result[8]);
-
-	decode_group($blockA, $blockB, $blockC, $blockD);
+	return array(
+		(hexdec($result[1]) << 8) + hexdec($result[2]),
+		(hexdec($result[3]) << 8) + hexdec($result[4]),
+		(hexdec($result[5]) << 8) + hexdec($result[6]),
+		(hexdec($result[7]) << 8) + hexdec($result[8])
+	);
 }
 
-function decode_hex_text($text)
+function decode_hex_text($text, $callback = null)
 {
 	$lines = explode("\n", $text);
 	foreach($lines as $line)
-		decode_hex($line);
+	{
+		if(($result = decode_hex($line)) && ($callback !== null))
+			$callback($result);
+	}
 }
 
-function decode_hex_file($file)
+function decode_hex_file($file, $callback = null)
 {
 	$input = fopen($file, 'r');
 	while(!feof($input))
-		decode_hex(trim(fgets($input)));
+	{
+		if(($result = decode_hex(trim(fgets($input)))) && ($callback !== null))
+			$callback($result);
+	}
 	fclose($input);
 }
 
@@ -101,6 +89,8 @@ function decode_bit($bit)
 	static $error = false;
 	static $errors = array();
 	static $match = array();
+
+	$result = false;
 /*
 	sleep(1);
 	echo $bit . "\n";
@@ -144,7 +134,7 @@ function decode_bit($bit)
 	{
 		$ltr--;
 		if($ltr > 0)
-			return;
+			return false;
 
 //		echo str_pad(decbin($block), 26, '0', STR_PAD_LEFT) . "\n";
 		$data = $block >> 10;
@@ -203,7 +193,7 @@ function decode_bit($bit)
 			$group[$distance[$expected]] = $data;
 
 			if($received['A'] && $received['B'] && ($received['C'] || $received['Ci']) && $received['D'])
-				decode_group($group[0], $group[1], $group[2], $group[3]);
+				$result = $group;
 		}
 		else
 		{
@@ -230,23 +220,28 @@ function decode_bit($bit)
 			$ltr = 0;
 			$received = array('A' => false, 'B' => false, 'C' => false, 'Ci' => false, 'D' => false);
 		}
+
+		return $result;
 	}
 }
 
-function decode_bit_text($text)
+function decode_bit_text($text, $callback = null)
 {
 	foreach(str_split($text) as $char)
-		decode_bit((int)$char);
+	{
+		if(($result = decode_bit((int)$char)) && ($callback !== null))
+			$callback($result);
+	}
 }
 
-function decode_bit_file($file)
+function decode_bit_file($file, $callback = null)
 {
 	$input = fopen($file, 'r');
 	while(!feof($input))
-		decode_bit((int)fread($input, 1));
+	{
+		if(($result = decode_bit((int)fread($input, 1))) && ($callback !== null))
+			$callback($result);
+	}
 	fclose($input);
 }
-
-//decode_bit_file("/data/Maps/TMC/rdsTest.140506-1920");
-//decode_hex_file("/data/Maps/TMC/tmc20140204.txt");
 ?>
