@@ -244,4 +244,32 @@ function decode_bit_file($file, $callback = null)
 	}
 	fclose($input);
 }
+
+function decode_byte_text($text, $callback = null)
+{
+	foreach(str_split($text) as $char)
+	{
+		$byte = ord($char);
+		for($i = 7; $i >= 0; $i--)
+		{
+			if(($result = decode_bit(($byte >> $i) & 1)) && ($callback !== null))
+				$callback($result);
+		}
+	}
+}
+
+function decode_byte_file($file, $callback = null)
+{
+	$input = fopen($file, 'r');
+	while(!feof($input))
+	{
+		$byte = ord(fread($input, 1));
+		for($i = 7; $i >= 0; $i--)
+		{
+			if(($result = decode_bit(($byte >> $i) & 1)) && ($callback !== null))
+				$callback($result);
+		}
+	}
+	fclose($input);
+}
 ?>
