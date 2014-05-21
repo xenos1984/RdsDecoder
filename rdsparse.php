@@ -5,27 +5,36 @@ include_once('tmclocation.php');
 
 function show_group($group)
 {
-	global $cid, $tabcd;
+	global $cid, $tabcd, $time;
 
 	//echo sprintf("<li><pre>%04x %04x %04x %04x</pre></li>\n", $group[0], $group[1], $group[2], $group[3]);
 
 	switch($group[1] >> 11)
 	{
+	case 0x08: // 4A = Clock-time and date
+		$offset = ($group[3] & 0x1f) * ($group[3] & 0x20 ? -1 : 1);
+		$minute = ($group[3] >> 6) & 0x3f;
+		$hour = ($group[3] >> 12) + (($group[2] & 0x01) << 4);
+		$date = ($group[2] >> 1) + (($group[1] & 0x03) << 15);
+		$time = ($date - 40587) * 86400 + $hour * 3600 + $minute * 60;
+		$loctime = $time + $offset * 1800;
+		echo "<tr><td class=\"timestamp\" colspan=\"4\">Timestamp: " . gmdate("d. m. Y H:i T", $time) . " / " . ($group[3] & 0x20 ? "-" : "+") . sprintf("%02d:%02d", ($group[3] >> 1) & 0x0f, ($group[3] & 0x01) * 30) . "</td></tr>\n";
+		break;
 	case 0x10: // 8A = TMC data
 		if($message = decode_tmc($group))
 		{
 			$event = find_event($message['ecd']);
 			$location = find_place($cid, $tabcd, $message['lcd']);
 
-			echo "<tr><td><a href=\"tmcmsgmap.php?ecd={$message['ecd']}&lcd={$message['lcd']}&ext={$message['ext']}&dir={$message['dir']}";
+			echo "<tr><td class=\"ecd\"><a href=\"tmcmsgmap.php?ecd={$message['ecd']}&lcd={$message['lcd']}&ext={$message['ext']}&dir={$message['dir']}";
 			if(array_key_exists('div', $message))
 				echo "&div={$message['div']}";
 			if(array_key_exists('dur', $message))
 				echo "&dur={$message['dur']}";
 			if(array_key_exists('bits', $message))
 				echo "&bits={$message['bits']}";
-			echo "\">{$message['ecd']}</a></td><td>{$event['text']}</td>";
-			echo "<td><a href=\"/tmc/tmcview.php?cid=$cid&amp;tabcd=$tabcd&amp;lcd={$message['lcd']}\">$cid:$tabcd:{$message['lcd']}</a></td><td>";
+			echo "&time=$time\">{$message['ecd']}</a></td><td class=\"event\">{$event['text']}</td>";
+			echo "<td class=\"lcd\"><a href=\"/tmc/tmcview.php?cid=$cid&amp;tabcd=$tabcd&amp;lcd={$message['lcd']}\">$cid:$tabcd:{$message['lcd']}</a></td><td class=\"location\">";
 			switch($location['class'])
 			{
 			case 'P':
@@ -42,6 +51,7 @@ function show_group($group)
 		}
 		break;
 	default:
+		//echo sprintf("<!-- %d%s -->\n", $group[1] >> 12, ($group[1] & (1 << 11) ? 'B' : 'A'));
 		break;
 	}
 
@@ -50,6 +60,8 @@ function show_group($group)
 
 $cid = (array_key_exists('cid', $_REQUEST) ? (int)$_REQUEST['cid'] : 58);
 $tabcd = (array_key_exists('tabcd', $_REQUEST) ? (int)$_REQUEST['tabcd'] : 1);
+
+$time = (array_key_exists('time', $_REQUEST) ? (int)$_REQUEST['time'] : time());
 
 header("Content-type: text/html");
 ?>

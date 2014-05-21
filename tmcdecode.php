@@ -98,15 +98,13 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$qcd = bindec(substr($bits, 0, 5));
 			$bits = substr($bits, 5);
 			$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quant'] = $qcd;
-			$value = find_quantifier($message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier'], $qcd) . $units[$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier']];
-			echo "\nQuantifier (5 bits): $qcd, Q = $value";
+			echo "\nQuantifier (5 bits): $qcd";
 			break;
 		case 5:
 			$qcd = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
 			$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quant'] = $qcd;
-			$value = find_quantifier($message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier'], $qcd) . $units[$message['iblocks'][count($message['iblocks']) - 1]['events'][count($message['iblocks'][count($message['iblocks']) - 1]['events']) - 1]['quantifier']];
-			echo "\nQuantifier (8 bits): $qcd, Q = $value";
+			echo "\nQuantifier (8 bits): $qcd";
 			break;
 		case 6:
 			$scd = bindec(substr($bits, 0, 8));
@@ -118,13 +116,13 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 		case 7:
 			$start = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
-			echo "\nStart time: $start - " . decode_time($start);
+			echo "\nStart time: $start";
 			$message['start'] = $start; // Start time (only once per message).
 			break;
 		case 8:
 			$stop = bindec(substr($bits, 0, 8));
 			$bits = substr($bits, 8);
-			echo "\nStop time: $stop - " . decode_time($stop);
+			echo "\nStop time: $stop";
 			$message['stop'] = $stop; // Start time (only once per message).
 			break;
 		case 9:
@@ -282,22 +280,22 @@ function decode_tmc($blocks)
 	return $result;
 }
 
-function system_tmc($blockA, $blockB, $blockC, $blockD)
+function system_tmc($blocks)
 {
 	echo "\nTMC system information:\n";
-	echo sprintf("Application ID %04x.\n", $blockD);
+	echo sprintf("Application ID %04x.\n", $blocks[3]);
 
-	if($blockD != 0xcd46)
+	if($blocks[3] != 0xcd46)
 		return;
 
-	switch($blockC >> 14)
+	switch($blocks[2] >> 14)
 	{
 	case 0:
-		$tabcd = ($blockC >> 6) & 0x3f;
+		$tabcd = ($blocks[2] >> 6) & 0x3f;
 		echo "Location table number $tabcd.\n";
 		break;
 	case 1:
-		$sid = ($blockC >> 6) & 0x3f;
+		$sid = ($blocks[2] >> 6) & 0x3f;
 		echo "Service identifier $sid.\n";
 		break;
 	default:

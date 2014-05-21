@@ -2,3 +2,5 @@
 pre {font-family: Liberation Mono, Courier New, monospace}
 
 th, td {text-align: left}
+td.timestamp {text-align: center}
+td.ecd {text-align: right}
