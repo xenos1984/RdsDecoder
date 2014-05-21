@@ -1,5 +1,22 @@
 <?php
 include_once('tmcdecode.php');
+include_once('tmclocation.php');
+
+function nonempty($s)
+{
+	return($s !== "");
+}
+
+function array_desc($a)
+{
+	if($a['class'] == 'P')
+		$data = array($a['junctionnumber'], $a['rnid'], $a['n1id'], $a['n2id']);
+	else if($a['class'] == 'L')
+		$data = array($a['roadnumber'], $a['rnid'], $a['n1id'], $a['n2id']);
+	else
+		$data = array($a['nid']);
+	return implode(" ", array_filter($data, "nonempty"));
+}
 
 function location_link($lcd)
 {
@@ -28,6 +45,10 @@ ob_start();
 $message = decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits);
 $raw = ob_get_contents();
 ob_end_clean();
+
+$primary = find_place($cid, $tabcd, $lcd);
+if($primary['class'] == 'P')
+	$secondary = find_offsets($cid, $tabcd, $lcd, $ext, $dir);
 ?>
 <!DOCTYPE html>
 <html>
@@ -43,12 +64,23 @@ echo "<pre>$raw</pre>\n";
 
 echo "<ul>\n";
 
-echo "<li>Primary location: " . location_link($lcd) . "</li>\n";
+echo "<li>Primary location: " . location_link($lcd) . " - " . array_desc($primary) . "</li>\n";
 echo "<li>Extent: {$message['extent']}</li>\n";
 echo "<li>Direction: " . ($message['direction'] ? "negative" : "positive") . "</li>\n";
+
+if(($primary['class'] == 'P') && ($ext > 0))
+{
+	echo "<li>Affected locations:<ul>\n";
+	foreach($secondary as $key => $value)
+		echo "<li>" . location_link($key) . " - " . array_desc($value) . "</li>\n";
+	echo "</ul></li>\n";
+}
+
 echo "<li>Affected directions: {$message['directions']}</li>\n";
 echo "<li>Urgency: {$urgencies[$message['urgency']]}</li>\n";
 
+if(array_key_exists('duration', $message))
+	echo "<li>Duration: " . decode_duration($message['duration'], $message['durtype'], $message['nature']) . "</li>\n";
 if(array_key_exists('start', $message))
 	echo "<li>Start time: " . decode_time($message['start'], $time) . "</li>\n";
 if(array_key_exists('stop', $message))
@@ -71,6 +103,14 @@ foreach($message['iblocks'] as $iblock)
 }
 echo "</ul></li>\n";
 
+if(count($message['supps']))
+{
+	echo "<li>Supplements:<ul>\n";
+	foreach($message['supps'] as $supp)
+		echo "<li>{$supp['code']} - {$supp['text']}</li>\n";
+	echo "</ul></li>\n";
+}
+
 if(count($message['diversions']))
 {
 	echo "<li>Diversions:<ul>\n";
@@ -85,6 +125,9 @@ if(count($message['diversions']))
 	}
 	echo "</ul></li>\n";
 }
+
+if(array_key_exists('cross', $message))
+	echo "<li>Cross-linked location: " . location_link($message['cross']) . "</li>\n";
 
 echo "</ul>\n";
 ?>

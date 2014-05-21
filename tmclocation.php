@@ -41,7 +41,7 @@ function find_location($table, $cid, $tabcd, $lcd)
 
 function find_place($cid, $tabcd, $lcd)
 {
-	static $tables = array("points", "segments", "roads", "administrativearea", "otherareas");
+	static $tables = array('points', 'segments', 'roads', 'administrativearea', 'otherareas');
 
 	foreach($tables as $table)
 	{
@@ -50,5 +50,34 @@ function find_place($cid, $tabcd, $lcd)
 	}
 
 	return array();
+}
+
+function find_offsets($cid, $tabcd, $lcd, $ext, $dir)
+{
+	global $pdo;
+
+	$off = $lcd;
+	$field = ($dir ? 'neg_off_lcd' : 'pos_off_lcd');
+	$locations = array();
+
+	for($i = 0; $i <= $ext; $i++)
+	{
+		if(!($result = find_location('points', $cid, $tabcd, $off)))
+			break;
+
+		$locations[$off] = $result;
+
+		if($i == $ext)
+			break;
+
+		$result = $pdo->query("SELECT $field FROM poffsets WHERE cid = '$cid' AND tabcd = '$tabcd' AND lcd = '$off'");
+		if(!$result)
+			break;
+		$off = $result->fetch(PDO::FETCH_COLUMN);
+		if(!$off)
+			break;
+	}
+
+	return $locations;
 }
 ?>

@@ -18,6 +18,75 @@ function decode_time($time, $now = 0)
 		return ($time % 2 ? "end of" : "middle of") . " " . date("F", strtotime((int)(($time - 230) / 2) . "/1"));
 }
 
+function decode_duration($dur, $type, $nature)
+{
+	if(strpos($type, 'D') !== false)
+	{
+		$text = ($nature == 'F' ? "within the next " : "for at least ");
+		switch($dur)
+		{
+		case 1:
+			$text .= "15 minutes";
+			break;
+		case 2:
+			$text .= "30 minutes";
+			break;
+		case 3:
+			$text .= "1 hour";
+			break;
+		case 4:
+			$text .= "2 hours";
+			break;
+		case 5:
+			$text .= "3 hours";
+			break;
+		case 6:
+			$text .= "4 hours";
+			break;
+		case 7:
+			$text = ($nature == 'F' ? "later today" : "for the rest of the day");
+			break;
+		default:
+			$text = "no time given";
+			break;
+		}
+	}
+	else if(strpos($type, 'L') !== false)
+	{
+		switch($dur)
+		{
+		case 1:
+			$text = ($nature == 'F' ? "within the next few hours" : "for the next few hours");
+			break;
+		case 2:
+			$text = ($nature == 'F' ? "later today" : "for the rest of the day");
+			break;
+		case 3:
+			$text = ($nature == 'F' ? "tomorrow" : "until tomorrow evening");
+			break;
+		case 4:
+			$text = ($nature == 'F' ? "the day after tomorrow" : "for the rest of the week");
+			break;
+		case 5:
+			$text = ($nature == 'F' ? "this weekend" : "until the end of next week");
+			break;
+		case 6:
+			$text = ($nature == 'F' ? "later this week" : "until the end of the month");
+			break;
+		case 7:
+			$text = ($nature == 'F' ? "next week" : "for a long period");
+			break;
+		default:
+			$text = "no time given";
+			break;
+		}
+	}
+	else
+		$text = "";
+
+	return $text;
+}
+
 function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 {
 	static $ccnames = array('increase urgency', 'decrease urgency', 'switch directionality', 'switch duration', 'switch verbosity', 'set diversion', 'increase extent by 8', 'increase extent by 16');
@@ -37,6 +106,7 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 	$message['extent'] = $ext;
 	$message['directions'] = $event['direction'];
 	$message['urgency'] = $event['urgency'];
+	$message['nature'] = $event['nature'];
 
 	echo "Event: $ecd - " . $event['text'];
 	echo "\nLocation: $lcd";
@@ -132,6 +202,8 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$message['iblocks'][count($message['iblocks']) - 1]['events'][] = $event;
 			$message['directions'] = min($message['directions'], $event['direction']);
 			$message['urgency'] = max($message['urgency'], $event['urgency']);
+			if(strlen($message['nature']) < strlen($event['nature']))
+				$message['nature'] = $event['nature'];
 			echo "\nAdditional event: $ecd - " . $event['text'];
 			break;
 		case 10:
@@ -234,6 +306,7 @@ function decode_tmc($blocks)
 
 	if($multi == 1)
 	{
+		//echo "Single group message.\n";
 		$message['lcd'] = $z;
 		$message['ecd'] = $y & 0x7ff;
 		$message['ext'] = ($y >> 11) & 0x7;
@@ -248,8 +321,10 @@ function decode_tmc($blocks)
 	{
 		$continuity = $x & 0x7;
 		$first = ($y >> 15) & 0x1;
+		//echo "Multi group message; CI = $continuity;";
 		if($first)
 		{
+			//echo " first.\n";
 			$message['lcd'] = $z;
 			$message['ecd'] = $y & 0x7ff;
 			$message['ext'] = ($y >> 11) & 0x7;
@@ -262,9 +337,15 @@ function decode_tmc($blocks)
 
 			$bit = str_pad(decbin((($y & 0xfff) << 16) + $z), 28, '0', STR_PAD_LEFT);
 			if($second)
+			{
+				//echo " second;";
 				$message['bits'] = $bit;
+			}
 			else
+			{
 				$message['bits'] .= $bit;
+			}
+			//echo " gsi = $gsi.\n";
 
 			if(!$gsi)
 			{
