@@ -90,8 +90,16 @@ foreach($message['iblocks'] as $iblock)
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 <link rel="stylesheet" type="text/css" href="rds.css"/>
 <title>TMC message viewer</title>
+<script src="http://www.openlayers.org/api/OpenLayers.js"></script>
+<script src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
+<script src="tmcmsgmap.js"></script>
+<script type="text/javascript">
+opurl = "http://overpass-api.de/api/interpreter?data=<?php echo rawurlencode($opquery); ?>";
+</script>
 </head>
-<body>
+<body onload="init();">
+<div id="map" style="position: fixed; top: 12px; bottom: 12px; left: 480px; right: 12px"></div>
+<div id="list" style="position: absolute; left: 12px; top: 12px; bottom: 12px; width: 456px; overflow: auto">
 <h1>TMC message viewer</h1>
 <?php
 echo "<h3>Raw message data</h3>\n";
@@ -177,5 +185,6 @@ echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=ol_fixed&amp;d
 echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=ol_bbox&amp;data=" . rawurlencode($opquery) . "\">Show as slippy overlay</a></li>\n";
 echo "</ul>\n";
 ?>
+</div>
 </body>
 </html>
