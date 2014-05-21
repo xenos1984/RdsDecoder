@@ -62,10 +62,12 @@ function find_offsets($cid, $tabcd, $lcd, $ext, $dir)
 
 	for($i = 0; $i <= $ext; $i++)
 	{
-		if(!($result = find_location('points', $cid, $tabcd, $off)))
+		if(!($data = find_location('points', $cid, $tabcd, $off)))
 			break;
+		if($data2 = find_location('poffsets', $cid, $tabcd, $off))
+			$data = array_merge($data, $data2);
 
-		$locations[$off] = $result;
+		$locations[$off] = $data;
 
 		if($i == $ext)
 			break;
@@ -79,5 +81,27 @@ function find_offsets($cid, $tabcd, $lcd, $ext, $dir)
 	}
 
 	return $locations;
+}
+
+function find_links($data)
+{
+	$links = array();
+
+	if(array_key_exists('pol_lcd', $data) && $data['pol_lcd'] && ($link = find_location('administrativearea', $data['cid'], $data['tabcd'], $data['pol_lcd'])))
+		$links['pol_lcd'] = $link;
+	if(array_key_exists('oth_lcd', $data) && $data['oth_lcd'] && ($link = find_location('otherareas', $data['cid'], $data['tabcd'], $data['oth_lcd'])))
+		$links['oth_lcd'] = $link;
+	if(array_key_exists('seg_lcd', $data) && $data['seg_lcd'] && ($link = find_location('segments', $data['cid'], $data['tabcd'], $data['seg_lcd'])))
+		$links['seg_lcd'] = $link;
+	if(array_key_exists('roa_lcd', $data) && $data['roa_lcd'] && ($link = find_location('roads', $data['cid'], $data['tabcd'], $data['roa_lcd'])))
+		$links['roa_lcd'] = $link;
+	if(array_key_exists('neg_off_lcd', $data) && $data['neg_off_lcd'] && ($link = find_location(($data['class'] == 'P' ? 'points' : 'segments'), $data['cid'], $data['tabcd'], $data['neg_off_lcd'])))
+		$links['neg_off_lcd'] = $link;
+	if(array_key_exists('pos_off_lcd', $data) && $data['pos_off_lcd'] && ($link = find_location(($data['class'] == 'P' ? 'points' : 'segments'), $data['cid'], $data['tabcd'], $data['pos_off_lcd'])))
+		$links['pos_off_lcd'] = $link;
+	if(array_key_exists('interruptsroad', $data) && $data['interruptsroad'] && ($link = find_location('points', $data['cid'], $data['tabcd'], $data['interruptsroad'])))
+		$links['interruptsroad'] = $link;
+
+	return $links;
 }
 ?>

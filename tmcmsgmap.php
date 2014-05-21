@@ -49,6 +49,40 @@ ob_end_clean();
 $primary = find_place($cid, $tabcd, $lcd);
 if($primary['class'] == 'P')
 	$secondary = find_offsets($cid, $tabcd, $lcd, $ext, $dir);
+else
+	$secondary = array();
+
+foreach($message['iblocks'] as $iblock)
+{
+	foreach($iblock['events'] as $event)
+	{
+		switch($event['code'])
+		{
+		case 101: // stationary traffic
+			$opquery = "(";
+			foreach($secondary as $location)
+			{
+				$opquery .= "relation[\"type\"=\"tmc:point\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"{$location['lcd']}\"];";
+				if(array_key_exists('pos_off_lcd', $location) && array_key_exists($location['pos_off_lcd'], $secondary))
+					$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"neg_lcd\"=\"{$location['lcd']}\"][\"pos_lcd\"=\"{$location['pos_off_lcd']}\"];";
+				if(array_key_exists('neg_off_lcd', $location) && array_key_exists($location['neg_off_lcd'], $secondary))
+					$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"pos_lcd\"=\"{$location['lcd']}\"][\"neg_lcd\"=\"{$location['neg_off_lcd']}\"];";
+			}
+			$opquery .= ")->.rels;";
+			$opquery .= "(.rels;(";
+			if($message['direction'] || ($message['directions'] == 2))
+				$opquery .= "way(r.rels:\"positive\");";
+			if((!$message['direction']) || ($message['directions'] == 2))
+				$opquery .= "way(r.rels:\"negative\");";
+			$opquery .= "way(r.rels:\"both\");";
+			$opquery .= "way(r.rels:\"\");";
+			$opquery .= ");node(w););out meta;";
+			break;
+		default:
+			break;
+		}
+	}
+}
 ?>
 <!DOCTYPE html>
 <html>
@@ -60,8 +94,10 @@ if($primary['class'] == 'P')
 <body>
 <h1>TMC message viewer</h1>
 <?php
+echo "<h3>Raw message data</h3>\n";
 echo "<pre>$raw</pre>\n";
 
+echo "<h3>Interpreted message data</h3>\n";
 echo "<ul>\n";
 
 echo "<li>Primary location: " . location_link($lcd) . " - " . array_desc($primary) . "</li>\n";
@@ -129,6 +165,16 @@ if(count($message['diversions']))
 if(array_key_exists('cross', $message))
 	echo "<li>Cross-linked location: " . location_link($message['cross']) . "</li>\n";
 
+echo "</ul>\n";
+
+echo "<h3>OSM linked data</h3>\n";
+echo "<ul>\n";
+echo "<li><a href=\"http://overpass-turbo.eu/map.html?Q=" . rawurlencode($opquery) . "\">Show as Overpass-Turbo map</a></li>\n";
+echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=xml&amp;data=" . rawurlencode($opquery) . "\">Convert to XML</a></li>\n";
+echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=mapql&amp;data=" . rawurlencode($opquery) . "\">Convert to pretty Overpass QL</a></li>\n";
+echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=compact&amp;data=" . rawurlencode($opquery) . "\">Convert to compact Overpass QL</a></li>\n";
+echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=ol_fixed&amp;data=" . rawurlencode($opquery) . "\">Show as auto-centered overlay</a></li>\n";
+echo "<li><a href=\"http://www.overpass-api.de/api/convert?target=ol_bbox&amp;data=" . rawurlencode($opquery) . "\">Show as slippy overlay</a></li>\n";
 echo "</ul>\n";
 ?>
 </body>
