@@ -76,8 +76,8 @@ header("Content-type: text/html");
 <h1>RDS decoder</h1>
 <table>
 <?php
-//decode_hex_text($_REQUEST['text']);
-decode_bit_file("/data/Maps/TMC/rdsTest.140506-1920", "show_group");
+decode_hex_text($_REQUEST['text'], "show_group");
+//decode_bit_file("/data/Maps/TMC/rdsTest.140506-1920", "show_group");
 //decode_hex_file("/data/Maps/TMC/tmc20140204.txt", "show_group");
 ?>
 </table>
