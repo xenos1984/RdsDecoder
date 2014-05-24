@@ -1,6 +1,7 @@
 <?php
 include_once('tmcdecode.php');
 include_once('tmclocation.php');
+include_once('tmcjson.php');
 
 function nonempty($s)
 {
@@ -46,11 +47,7 @@ $message = decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits);
 $raw = ob_get_contents();
 ob_end_clean();
 
-$primary = find_place($cid, $tabcd, $lcd);
-if($primary['class'] == 'P')
-	$secondary = find_offsets($cid, $tabcd, $lcd, $ext, $dir);
-else
-	$secondary = array();
+$roles = array('' => array(), 'entry' => array(), 'exit' => array(), 'ramp' => array(), 'parking' => array(), 'fuel' => array(), 'restaurant' => array());
 
 foreach($message['iblocks'] as $iblock)
 {
@@ -59,30 +56,142 @@ foreach($message['iblocks'] as $iblock)
 		switch($event['code'])
 		{
 		case 101: // stationary traffic
-			$opquery = "(";
-			foreach($secondary as $location)
-			{
-				$opquery .= "relation[\"type\"=\"tmc:point\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"{$location['lcd']}\"];";
-				if(array_key_exists('pos_off_lcd', $location) && array_key_exists($location['pos_off_lcd'], $secondary))
-					$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"neg_lcd\"=\"{$location['lcd']}\"][\"pos_lcd\"=\"{$location['pos_off_lcd']}\"];";
-				if(array_key_exists('neg_off_lcd', $location) && array_key_exists($location['neg_off_lcd'], $secondary))
-					$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"pos_lcd\"=\"{$location['lcd']}\"][\"neg_lcd\"=\"{$location['neg_off_lcd']}\"];";
-			}
-			$opquery .= ")->.rels;";
-			$opquery .= "(.rels;(";
-			if($message['direction'] || ($message['directions'] == 2))
-				$opquery .= "way(r.rels:\"positive\");";
-			if((!$message['direction']) || ($message['directions'] == 2))
-				$opquery .= "way(r.rels:\"negative\");";
-			$opquery .= "way(r.rels:\"both\");";
-			$opquery .= "way(r.rels:\"\");";
-			$opquery .= ");node(w););out meta;";
+			$roles[''][] = 'traffic';
+			break;
+		case 1990: // car park closed (until Q)
+			$roles['parking'][] = 'closed';
 			break;
 		default:
 			break;
 		}
 	}
 }
+
+array_map("array_unique", $roles);
+
+$primary = find_place($cid, $tabcd, $lcd);
+if($primary['class'] == 'P')
+	$secondary = find_offsets($cid, $tabcd, $lcd, $ext, $dir);
+else
+	$secondary = array($primary);
+
+$opquery = "(";
+if($primary['class'] == 'P')
+{
+	foreach($secondary as $location)
+	{
+		$opquery .= "relation[\"type\"=\"tmc:point\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"{$location['lcd']}\"];";
+		if(array_key_exists('pos_off_lcd', $location) && array_key_exists($location['pos_off_lcd'], $secondary))
+			$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"neg_lcd\"=\"{$location['lcd']}\"][\"pos_lcd\"=\"{$location['pos_off_lcd']}\"];";
+		if(array_key_exists('neg_off_lcd', $location) && array_key_exists($location['neg_off_lcd'], $secondary))
+			$opquery .= "relation[\"type\"=\"tmc:link\"][\"table\"=\"$cid:$tabcd\"][\"pos_lcd\"=\"{$location['lcd']}\"][\"neg_lcd\"=\"{$location['neg_off_lcd']}\"];";
+	}
+}
+else if($primary['class'] == 'A')
+{
+	$opquery .= "relation[\"type\"=\"tmc:area\"][\"table\"=\"$cid:$tabcd\"][\"lcd\"=\"{$location['lcd']}\"];";
+}
+$opquery .= ");";
+$opquery = "(${opquery}rel(r););";
+$opquery = "(${opquery}>;);out meta;";
+
+$opurl = "http://overpass-api.de/api/interpreter?data=" . rawurlencode($opquery);
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $opurl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_setopt($ch, CURLOPT_HEADER, 0);
+curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+$opdata = curl_exec($ch);
+curl_close($ch);
+
+if($opdata === false)
+	$opdata = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<osm version=\"0.6\" generator=\"Overpass API\">\n</osm>";
+
+$osmxml = new DOMDocument;
+$osmxml->formatOutput = false;
+$osmxml->loadXML($opdata);
+$osmxp = new DOMXPath($osmxml);
+
+$nodes = array();
+$osmnodes = $osmxp->query("/osm/node");
+foreach($osmnodes as $osmnode)
+	$nodes[$osmnode->getAttribute('id')] = $osmnode;
+
+$ways = array();
+$osmways = $osmxp->query("/osm/way");
+foreach($osmways as $osmway)
+	$ways[$osmway->getAttribute('id')] = $osmway;
+
+$rels = array();
+$osmrels = $osmxp->query("/osm/relation");
+foreach($osmrels as $osmrel)
+	$rels[$osmrel->getAttribute('id')] = $osmrel;
+
+$features = array();
+foreach($rels as $rel => $osmrel)
+{
+	$relprops = array('relation' => $rel);
+	$reltags = $osmxp->query("tag", $osmrel);
+	foreach($reltags as $reltag)
+		$relprops[$reltag->getAttribute('k')] = $reltag->getAttribute('v');
+
+	if(!array_key_exists('type', $relprops))
+		continue;
+
+	if(substr($relprops['type'], 0, 4) != 'tmc:')
+		continue;
+
+	$members = $osmxp->query("member", $osmrel);
+	foreach($members as $member)
+	{
+		$id = $member->getAttribute('ref');
+		$type = $member->getAttribute('type');
+		$role = $member->getAttribute('role');
+		$props = array('id' => $id, 'member' => $type, 'role' => $role);
+
+		if(!preg_match('/(positive|negative|both|):?(entry|exit|ramp|parking|fuel|restaurant|)/', $role, $matches))
+			continue;
+
+		//echo "<!--"; print_r($matches); echo "-->\n";
+
+		if(($message['directions'] == 1) && ($matches[1] == ($message['direction'] ? 'negative' : 'positive')))
+			continue;
+
+		if(!array_key_exists($matches[2], $roles))
+			continue;
+
+		if(!count($roles[$matches[2]]))
+			continue;
+
+		$props['message'] = $roles[$matches[2]];
+
+		if($type == 'node')
+		{
+			$geom = array('type' => 'Point', 'coordinates' => array($nodes[$id]->getAttribute('lon'), $nodes[$id]->getAttribute('lat')));
+		}
+		else if($type == 'way')
+		{
+			$wns = $osmxp->query('nd', $ways[$id]);
+			$coords = array();
+			foreach($wns as $wn)
+			{
+				$nd = $wn->getAttribute('ref');
+				$coords[] = array($nodes[$nd]->getAttribute('lon'), $nodes[$nd]->getAttribute('lat'));
+			}
+			if(($coords[0][0] == $coords[count($coords) - 1][0]) && ($coords[0][1] == $coords[count($coords) - 1][1]))
+				$geom = array('type' => 'Polygon', 'coordinates' => array($coords));
+			else
+				$geom = array('type' => 'LineString', 'coordinates' => $coords);
+		}
+
+		$features[] = array('type' => 'Feature', 'properties' => array_merge($props, $relprops), 'geometry' => $geom);
+	}
+}
+
+$featcoll = array('type' => 'FeatureCollection', 'features' => $features);
+$osmjson = json_string($featcoll);
+
 ?>
 <!DOCTYPE html>
 <html>
@@ -94,7 +203,7 @@ foreach($message['iblocks'] as $iblock)
 <script src="http://www.openstreetmap.org/openlayers/OpenStreetMap.js"></script>
 <script src="tmcmsgmap.js"></script>
 <script type="text/javascript">
-opurl = "http://overpass-api.de/api/interpreter?data=<?php echo rawurlencode($opquery); ?>";
+osmdata = <?php echo $osmjson; ?>;
 </script>
 </head>
 <body onload="init();">
@@ -137,6 +246,8 @@ foreach($message['iblocks'] as $iblock)
 	foreach($iblock['events'] as $event)
 	{
 		echo "<li>" . $event['code'] . " - ";
+		if($event['reference'] != '')
+			echo $event['reference'] . ": ";
 		if(array_key_exists('quant', $event))
 			echo preg_replace('/\(([^\)]*)Q([^\)]*)\)/', '${1}' . find_quantifier($event['quantifier'], $event['quant']) . $units[$event['quantifier']] . '${2}', $event['text']);
 		else

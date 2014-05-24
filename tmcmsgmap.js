@@ -1,4 +1,4 @@
-var opurl;
+var osmdata;
 
 function init()
 {
@@ -33,17 +33,42 @@ function init()
 		map.zoomToExtent(dataExtent);
 	};
 
-	var ltmc = new OpenLayers.Layer.Vector("TMC message", {
-		protocol: new OpenLayers.Protocol.HTTP({
-			url: opurl,
-			format: new OpenLayers.Format.OSM()
-		}),
-		strategies: [new OpenLayers.Strategy.Fixed()],
-		style: {strokeColor: "red", strokeWidth: 2, strokeOpacity: 1, fillColor: "orange", fillOpacity: 0.5, pointRadius: 7.5},
-		projection: new OpenLayers.Projection("EPSG:4326")
+	var geojson = new OpenLayers.Format.GeoJSON({
+		internalProjection: new OpenLayers.Projection("EPSG:900913"),
+		externalProjection: new OpenLayers.Projection("EPSG:4326")
 	});
-	ltmc.events.register("loadend", ltmc, setExtent);
-	map.addLayer(ltmc);
+
+	function styleTMC(feature) {
+		if((feature.attributes.message.indexOf('traffic') > -1) && (feature.attributes.message.indexOf('construction') > -1))
+			feature.style.strokeDashstyle = 'dashdot';
+		else if(feature.attributes.message.indexOf('traffic') > -1)
+			feature.style.strokeDashstyle = 'dash';
+		else if(feature.attributes.message.indexOf('construction') > -1)
+			feature.style.strokeDashstyle = 'longdash';
+		else
+			feature.style.strokeDashstyle = 'solid';
+
+		if((feature.attributes.message.indexOf('danger') > -1) && (feature.attributes.message.indexOf('closed') > -1))
+			feature.style.fillColor = feature.style.strokeColor = '#ff00ff';
+		else if(feature.attributes.message.indexOf('danger') > -1)
+			feature.style.fillColor = feature.style.strokeColor = '#ff0000';
+		else if(feature.attributes.message.indexOf('closed') > -1)
+			feature.style.fillColor = feature.style.strokeColor = '#8000ff';
+		else
+			feature.style.fillColor = feature.style.strokeColor = '#ff8000';
+	};
+
+	if(osmdata.features.length > 0)
+	{
+		var ltmc = new OpenLayers.Layer.Vector("TMC message", {
+			style: {pointRadius: 7.5, strokeWidth: 2.5, strokeOpacity: 1, fillOpacity: 0.6},
+			onFeatureInsert: styleTMC
+		});
+		ltmc.events.register("featuresadded", ltmc, setExtent);
+		ltmc.addFeatures(geojson.read(osmdata));
+		map.addLayer(ltmc);
+		layers.push(ltmc);
+	}
 
 	if(!map.getCenter())
 		map.setCenter(null, null);
