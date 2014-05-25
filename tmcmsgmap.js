@@ -39,11 +39,11 @@ function init()
 	});
 
 	function styleTMC(feature) {
-		if((feature.attributes.message.indexOf('traffic') > -1) && (feature.attributes.message.indexOf('construction') > -1))
+		if((feature.attributes.message.indexOf('traffic') > -1) && (feature.attributes.message.indexOf('obstruction') > -1))
 			feature.style.strokeDashstyle = 'dashdot';
 		else if(feature.attributes.message.indexOf('traffic') > -1)
 			feature.style.strokeDashstyle = 'dash';
-		else if(feature.attributes.message.indexOf('construction') > -1)
+		else if(feature.attributes.message.indexOf('obstruction') > -1)
 			feature.style.strokeDashstyle = 'longdash';
 		else
 			feature.style.strokeDashstyle = 'solid';
@@ -54,8 +54,14 @@ function init()
 			feature.style.fillColor = feature.style.strokeColor = '#ff0000';
 		else if(feature.attributes.message.indexOf('closed') > -1)
 			feature.style.fillColor = feature.style.strokeColor = '#8000ff';
+		else if(feature.attributes.message.indexOf('clear') > -1)
+			feature.style.fillColor = feature.style.strokeColor = '#00ff00';
+		else if(feature.attributes.message.indexOf('diversion') > -1)
+			feature.style.fillColor = feature.style.strokeColor = '#0000ff';
+		else if(feature.attributes.message.indexOf('destination') > -1)
+			feature.style.fillColor = feature.style.strokeColor = '#808080';
 		else
-			feature.style.fillColor = feature.style.strokeColor = '#ff8000';
+			feature.style.fillColor = feature.style.strokeColor = '#ffc000';
 	};
 
 	if(osmdata.features.length > 0)
