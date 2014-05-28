@@ -22,6 +22,20 @@ function decode_hex_text($text, $callback = null)
 	}
 }
 
+function decode_hex_url($url, $callback = null)
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+	$data = curl_exec($ch);
+	curl_close($ch);
+
+	if($data !== false)
+		decode_hex_text($data, $callback);
+}
+
 function decode_hex_file($file, $callback = null)
 {
 	$input = fopen($file, 'r');
@@ -234,6 +248,20 @@ function decode_bit_text($text, $callback = null)
 	}
 }
 
+function decode_bit_url($url, $callback = null)
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+	$data = curl_exec($ch);
+	curl_close($ch);
+
+	if($data !== false)
+		decode_bit_text($data, $callback);
+}
+
 function decode_bit_file($file, $callback = null)
 {
 	$input = fopen($file, 'r');
@@ -256,6 +284,20 @@ function decode_byte_text($text, $callback = null)
 				$callback($result);
 		}
 	}
+}
+
+function decode_byte_url($url, $callback = null)
+{
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, $url);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+	$data = curl_exec($ch);
+	curl_close($ch);
+
+	if($data !== false)
+		decode_byte_text($data, $callback);
 }
 
 function decode_byte_file($file, $callback = null)

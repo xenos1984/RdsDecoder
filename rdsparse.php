@@ -26,14 +26,14 @@ function show_group($group)
 			$event = find_event($message['ecd']);
 			$location = find_place($cid, $tabcd, $message['lcd']);
 
-			echo "<tr><td class=\"ecd\"><a href=\"tmcmsgmap.php?ecd={$message['ecd']}&lcd={$message['lcd']}&ext={$message['ext']}&dir={$message['dir']}";
+			echo "<tr><td class=\"ecd\"><a href=\"tmcmsgmap.php?cid=$cid&amp;tabcd=$tabcd&amp;ecd={$message['ecd']}&amp;lcd={$message['lcd']}&amp;ext={$message['ext']}&amp;dir={$message['dir']}";
 			if(array_key_exists('div', $message))
-				echo "&div={$message['div']}";
+				echo "&amp;div={$message['div']}";
 			if(array_key_exists('dur', $message))
-				echo "&dur={$message['dur']}";
+				echo "&amp;dur={$message['dur']}";
 			if(array_key_exists('bits', $message))
-				echo "&bits={$message['bits']}";
-			echo "&time=$time\">{$message['ecd']}</a></td><td class=\"event\">{$event['text']}</td>";
+				echo "&amp;bits={$message['bits']}";
+			echo "&amp;time=$time\">{$message['ecd']}</a></td><td class=\"event\">{$event['text']}</td>";
 			echo "<td class=\"lcd\"><a href=\"/tmc/tmcview.php?cid=$cid&amp;tabcd=$tabcd&amp;lcd={$message['lcd']}\">$cid:$tabcd:{$message['lcd']}</a></td><td class=\"location\">";
 			switch($location['class'])
 			{
@@ -76,9 +76,35 @@ header("Content-type: text/html");
 <h1>RDS decoder</h1>
 <table>
 <?php
-decode_hex_text($_REQUEST['text'], "show_group");
-//decode_bit_file("/data/Maps/TMC/rdsTest.140506-1920", "show_group");
-//decode_hex_file("/data/Maps/TMC/tmc20140204.txt", "show_group");
+echo "<!--"; print_r($_REQUEST); echo "-->\n";
+
+$function = "decode_{$_REQUEST['format']}_{$_REQUEST['input']}";
+
+switch($function)
+{
+case "decode_hex_text":
+case "decode_bit_text":
+case "decode_byte_text":
+case "decode_hex_url":
+case "decode_bit_url":
+case "decode_byte_url":
+	if(array_key_exists($_REQUEST['input'], $_REQUEST))
+		call_user_func($function, $_REQUEST[$_REQUEST['input']], "show_group");
+	else
+		echo "<p>No input given.</p>\n";
+	break;
+case "decode_hex_file":
+case "decode_bit_file":
+case "decode_byte_file":
+	if(array_key_exists('file', $_FILES))
+		call_user_func($function, $_FILES['file']['tmp_name'], "show_group");
+	else
+		echo "<p>No input given.</p>\n";
+	break;
+default:
+	echo "<p>Invalid input type or format.</p>\n";
+	break;
+}
 ?>
 </table>
 </body>

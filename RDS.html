@@ -4,12 +4,68 @@
 		<meta http-equiv="content-type" content="text/html; charset=UTF-8">
 		<link rel="stylesheet" type="text/css" href="rds.css"/>
 		<title>RDS Parser</title>
+		<script type="text/javascript">
+			function setcountry(country)
+			{
+				var data = JSON.parse(country);
+				document.getElementById("cid").value = data.cid;
+				document.getElementById("tabcd").value = data.tabcd;
+			}
+
+			function setinput(type)
+			{
+				document.getElementById("field_text").style.display = (type == "text" ? "block" : "none");
+				document.getElementById("field_url").style.display = (type == "url" ? "block" : "none");
+				document.getElementById("field_file").style.display = (type == "file" ? "block" : "none");
+				document.getElementById("text").disabled = (type == "text" ? "" : "disabled");
+				document.getElementById("url").disabled = (type == "url" ? "" : "disabled");
+				document.getElementById("file").disabled = (type == "file" ? "" : "disabled");
+			}
+		</script>
 	</head>
 	<body>
 		<h1>RDS Parser</h1>
-		<form method="POST" action="rdsparse.php">
-			<textarea name="text" cols="50" rows="10"></textarea>
-			<input type="submit" value="Parse"></input>
+		<form method="POST" action="rdsparse.php" enctype="multipart/form-data">
+			<fieldset>
+				<legend>TMC location table to use</legend>
+				<select name="country" id="country" onchange="setcountry(this.options[this.selectedIndex].value)">
+					<option value='{"cid":6, "tabcd":1}'>Belgium</option>
+					<option value='{"cid":15, "tabcd":17}'>Finland</option>
+					<option value='{"cid":16, "tabcd":32}'>France</option>
+					<option value='{"cid":58, "tabcd":1}' selected="selected">Germany</option>
+					<option value='{"cid":25, "tabcd":1}'>Italy</option>
+					<option value='{"cid":40, "tabcd":49}'>Norway</option>
+					<option value='{"cid":49, "tabcd":17}'>Spain</option>
+					<option value='{"cid":50, "tabcd":33}'>Sweden</option>
+				</select>
+				<input type="hidden" name="cid" id="cid" value="58"/>
+				<input type="hidden" name="tabcd" id="tabcd" value="1"/>
+			</fieldset>
+			<fieldset>
+				<legend>Input format</legend>
+				<input type="radio" name="format" id="format_hex" value="hex" checked="checked"/><label for="format_hex">Hex (one group / four 16-bit blocks / 8 bytes per line)</label><br/>
+				<input type="radio" name="format" id="format_bit" value="bit"/><label for="format_bit">ASCII bit stream (sequence of ASCII 0 and 1)</label><br/>
+				<input type="radio" name="format" id="format_byte" value="byte"/><label for="format_byte">Binary bit stream (sequence of bits in packed form)</label>
+			</fieldset>
+			<fieldset>
+				<legend>Input type</legend>
+				<input type="radio" name="input" id="input_text" value="text" checked="checked" onclick="setinput('text')"/><label for="input_text">Direct text input</label><br/>
+				<input type="radio" name="input" id="input_url" value="url" onclick="setinput('url')"/><label for="input_url">Load from URL</label><br/>
+				<input type="radio" name="input" id="input_file" value="file" onclick="setinput('file')"/><label for="input_file">Upload file</label>
+			</fieldset>
+			<fieldset id="field_text" style="display:block">
+				<legend>Text input</legend>
+				<textarea name="text" id="text" cols="50" rows="10"></textarea>
+			</fieldset>
+			<fieldset id="field_url" style="display:none">
+				<legend>Load from URL</legend>
+				<input type="url" name="url" id="url" size="50" disabled="disabled"/>
+			</fieldset>
+			<fieldset id="field_file" style="display:none">
+				<legend>Upload file</legend>
+				<input type="file" name="file" id="file" disabled="disabled"/>
+			</fieldset>
+			<input type="submit" value="Parse"/>
 		</form>
 	</body>
 </html>
