@@ -1,4 +1,14 @@
 <?php
+function basic_tuning($group)
+{
+	static $pname = "\x00\x00\x00\x00\x00\x00\x00\x00";
+
+	$offset = 2 * ($group[1] & 0x3);
+	$pname[$offset] = chr($group[3] >> 8);
+	$pname[$offset + 1] = chr($group[3] & 0xff);
+	echo $pname . "\n";
+}
+
 function radio_text($group)
 {
 	static $msg32 = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
