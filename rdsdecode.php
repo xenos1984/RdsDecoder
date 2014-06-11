@@ -1,4 +1,38 @@
 <?php
+function radio_text($group)
+{
+	static $msg32 = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+	static $msg64 = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+	static $oldflag = 2;
+
+	$flag = ($group[1] >> 4) & 1;
+	$addr = $group[1] & 0xf;
+	$type = ($group[1] >> 11) & 1;
+//	echo "Type: $type, Flag: $flag, Address: $addr\n";
+
+	if($type)
+	{
+		if($flag != $oldflag)
+			$msg32 = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+		$offset = 2 * $addr;
+		$msg32[$offset] = chr($group[3] >> 8);
+		$msg32[$offset + 1] = chr($group[3] & 0xff);
+		echo $msg32 . "\n";
+	}
+	else
+	{
+		if($flag != $oldflag)
+			$msg64 = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+		$offset = 4 * $addr;
+		$msg64[$offset] = chr($group[2] >> 8);
+		$msg64[$offset + 1] = chr($group[2] & 0xff);
+		$msg64[$offset + 2] = chr($group[3] >> 8);
+		$msg64[$offset + 3] = chr($group[3] & 0xff);
+		echo $msg64 . "\n";
+	}
+	$oldflag = $flag;
+}
+
 function decode_hex($line)
 {
 	if(!preg_match('/([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])[^[:xdigit:]]*([[:xdigit:]][[:xdigit:]])/i', $line, $result))
@@ -104,6 +138,7 @@ function decode_bit($bit)
 	static $errors = array();
 	static $match = array();
 
+	$bit = ord($bit) & 0x01;
 	$result = false;
 /*
 	sleep(1);
@@ -243,7 +278,7 @@ function decode_bit_text($text, $callback = null)
 {
 	foreach(str_split($text) as $char)
 	{
-		if(($result = decode_bit((int)$char)) && ($callback !== null))
+		if(($result = decode_bit($char)) && ($callback !== null))
 			$callback($result);
 	}
 }
@@ -267,7 +302,7 @@ function decode_bit_file($file, $callback = null)
 	$input = fopen($file, 'r');
 	while(!feof($input))
 	{
-		if(($result = decode_bit((int)fread($input, 1))) && ($callback !== null))
+		if(($result = decode_bit(fread($input, 1))) && ($callback !== null))
 			$callback($result);
 	}
 	fclose($input);
