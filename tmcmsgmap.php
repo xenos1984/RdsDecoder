@@ -1661,7 +1661,7 @@ array_map("array_unique", $roles);
 
 $primary = find_place($cid, $tabcd, $lcd);
 if($primary['class'] == 'P')
-	$secondary = find_offsets($cid, $tabcd, $lcd, $ext, $dir);
+	$secondary = find_offsets($cid, $tabcd, $lcd, $message['extent'], $message['direction']);
 else
 	$secondary = array($primary);
 
