@@ -1829,13 +1829,13 @@ if(array_key_exists('start', $message))
 if(array_key_exists('stop', $message))
 	echo "<li>Stop time: " . decode_time($message['stop'], $time) . "</li>\n";
 
-echo "<li>Information blocks:<ul>\n";
+echo "<li>Information blocks:<ol>\n";
 foreach($message['iblocks'] as $iblock)
 {
-	echo "<li>Events / quantifier:<ul>\n";
+	echo "<li><ul>\n";
 	foreach($iblock['events'] as $event)
 	{
-		echo "<li>" . $event['code'] . " - ";
+		echo "<li>Event: " . $event['code'] . " - ";
 		if($event['reference'] != '')
 			echo $event['reference'] . ": ";
 		if(array_key_exists('quant', $event))
@@ -1844,9 +1844,18 @@ foreach($message['iblocks'] as $iblock)
 			echo trim(preg_replace('/\([^\)]*Q[^\)]*\)/', '', $event['text']));
 		echo "</li>\n";
 	}
+	if(array_key_exists('destinations', $iblock))
+	{
+		foreach($iblock['destinations'] as $dest)
+			echo "<li>Destination: " . location_link($dest) . " - " . array_desc(find_place($cid, $tabcd, $dest)) . "</li>\n";
+	}
+	if(array_key_exists('length', $iblock))
+		echo "<li>Affected route length: {$iblock['length']}</li>\n";
+	if(array_key_exists('speed', $iblock))
+		echo "<li>Speed limit: {$iblock['speed']}</li>\n";
 	echo "</ul></li>\n";
 }
-echo "</ul></li>\n";
+echo "</ol></li>\n";
 
 if(count($message['supps']))
 {

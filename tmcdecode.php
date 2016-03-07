@@ -145,24 +145,25 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$message['ccodes'][] = $control; // Add control code.
 			break;
 		case 2:
-			$length = bindec(substr($bits, 0, 5));
+			$lencd = bindec(substr($bits, 0, 5));
 			$bits = substr($bits, 5);
-			echo "\nAffected route length: $length - ";
-			if($length == 0)
-				echo "&gt; 100km";
-			else if($length <= 10)
-				echo "${length}km";
-			else if($length <= 15)
-				echo sprintf("%dkm", 2 * $length - 10);
+			if($lencd == 0)
+				$length = "&gt; 100km";
+			else if($lencd <= 10)
+				$length = $lencd . "km";
+			else if($lencd <= 15)
+				$length = sprintf("%dkm", 2 * $lencd - 10);
 			else
-				echo sprintf("%dkm", 5 * $length - 55);
+				$length = sprintf("%dkm", 5 * $lencd - 55);
+			echo "\nAffected route length: $lencd - $length";
 			$message['iblocks'][count($message['iblocks']) - 1]['length'] = $length; // Affected route length per information block.
 			break;
 		case 3:
-			$speed = bindec(substr($bits, 0, 5));
+			$spcd = bindec(substr($bits, 0, 5));
 			$bits = substr($bits, 5);
-			echo "\nSpeed limit: " . (5 * $speed) . "km/h";
+			$speed = (5 * $spcd) . "km/h";
 			$message['iblocks'][count($message['iblocks']) - 1]['speed'] = $speed; // Speed limit advice per information block.
+			echo "\nSpeed limit: $spcd - $speed";
 			break;
 		case 4:
 			$qcd = bindec(substr($bits, 0, 5));
@@ -228,8 +229,8 @@ function decode_message($ecd, $lcd, $dir, $ext, $dur, $div, $bits)
 			$dests[] = $destination;
 			if((bindec(substr($bits, 0, 4)) != 10) && (bindec(substr($bits, 0, 4)) != 11))
 			{
-				$message['iblocks'][count($message['iblocks']) - 1]['destinations'] = $dest;
-				unset($dest);
+				$message['iblocks'][count($message['iblocks']) - 1]['destinations'] = $dests;
+				unset($dests);
 			}
 			break;
 		case 12:
